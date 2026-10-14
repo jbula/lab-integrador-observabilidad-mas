@@ -1,0 +1,13 @@
+{
+  "mode": "baseline",
+  "timestamp": "2026-10-14T17:20:07.359Z",
+  "metrics": {
+    "latency_avg_ms": 35.39610739788643,
+    "latency_p95_ms": 81.519,
+    "latency_p99_ms": 124.682,
+    "error_rate_pct": 0,
+    "throughput_rps": 43.504712283554895,
+    "cpu_pct": 60.55,
+    "mem_mib": 309.4
+  }
+}
