@@ -33,6 +33,50 @@ delega en `service-b` la consulta de inventario. El segundo continúa la traza i
 por el primero gracias a la propagación de contexto. Cada servicio administra su propia
 base de datos PostgreSQL, siguiendo el patrón de base de datos por servicio.
 
+## 1.1 Arquitectura del sistema
+
+La Figura 1 presenta la topología del pipeline. Una petición entra por `service-a`,
+que consulta su base de datos y delega en `service-b`; ambos emiten telemetría al
+Collector por OTLP y escriben logs a la salida estándar. El Collector distribuye cada
+señal al backend correspondiente, y Grafana permite correlacionarlas por `trace_id`.
+
+```
+                      Cliente / k6
+                           |
+                           v  GET /order/{id}
+        +-----------------------------------------+
+        |  service-a  (FastAPI + OTel SDK)         |
+        |  spans: fetch.order.db, call.service-b   |
+        +-----------------------------------------+
+           |                       |
+           | SQL                   |  HTTP + traceparent (W3C)
+           v                       v
+     postgres-a            +-----------------------------------+
+     (orders)              |  service-b  (FastAPI + OTel SDK)   |
+                           |  span: inventory.db.fetch         |
+                           +-----------------------------------+
+                              |                    |
+                              | SQL                |
+                              v                    |
+                        postgres-b (inventory)     |
+                                                   |
+        service-a y service-b  ---- OTLP :4317 ----+
+                           |
+                           v
+              +-------------------------------+
+              |         OTel Collector        |
+              +-------------------------------+
+               |             |             |
+            trazas        metricas        logs
+               v             v             v
+         Jaeger :16686   Prometheus    Promtail -> Loki
+               \             |             /
+                +-----> Grafana :3000 <----+
+              correlacion cross-signal por trace_id
+```
+
+*Figura 1. Arquitectura del pipeline de observabilidad end-to-end.*
+
 # 2. Modos de ejecución
 
 El laboratorio se diseñó para operar en dos modos con configuración equivalente. El
@@ -143,6 +187,16 @@ La correlación entre señales se materializa en Grafana. Desde una línea de lo
 es posible saltar a la traza correspondiente en Jaeger usando el `trace_id`, y desde una
 traza es posible consultar los logs asociados. Esta navegación es la que habilita el
 diagnóstico de incidentes en tiempo real.
+
+## 6.1 Evidencias de ejecución
+
+![Figura 2. Jaeger UI. Listado de trazas de service-a; cada traza agrupa 10 spans que abarcan service-a y service-b, lo que evidencia la propagación de contexto entre servicios.](../evidence/jaeger-trace.png){ width=92% }
+
+![Figura 3. Grafana Explore con fuente Jaeger. Árbol de una traza distribuida: GET /order, fetch.order.db, call.service-b.inventory y los spans de service-b.](../evidence/grafana.png){ width=92% }
+
+![Figura 4. Grafana Explore. La misma traza abierta mediante búsqueda por trace_id, resultado del pivote de correlación.](../evidence/correlacion.png){ width=92% }
+
+![Figura 5. Grafana Explore con fuente Loki. Líneas de log en formato JSON con el trace_id y el enlace que permite saltar desde un log hasta su traza en Jaeger.](../evidence/grafana-dashboard.png){ width=92% }
 
 # 7. Análisis de overhead
 
