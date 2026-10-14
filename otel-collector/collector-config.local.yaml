@@ -1,0 +1,118 @@
+# ════════════════════════════════════════════════════════════════════════════
+# OTel Collector — MODO LOCAL (Docker Compose)
+# Flujo: service-a/service-b --OTLP--> Collector --> Jaeger (trazas) + Prometheus (métricas)
+# Logs: las apps escriben JSON a stdout; Promtail los lee y los envía a Loki (no por OTLP).
+# Compatible con otel/opentelemetry-collector-contrib:0.103.0
+# ════════════════════════════════════════════════════════════════════════════
+
+extensions:
+  health_check:
+    endpoint: 0.0.0.0:13133
+  pprof:
+    endpoint: 0.0.0.0:1777
+  zpages:
+    endpoint: 0.0.0.0:55679
+
+receivers:
+  otlp:
+    protocols:
+      grpc:
+        endpoint: 0.0.0.0:4317
+        max_recv_msg_size_mib: 32
+      http:
+        endpoint: 0.0.0.0:4318
+        cors:
+          allowed_origins: ["http://localhost:*"]   # restringido (no "*")
+
+  # CPU/memoria del host del Collector (panel de CPU del dashboard)
+  hostmetrics:
+    collection_interval: 30s
+    scrapers:
+      cpu:
+        metrics:
+          system.cpu.utilization:
+            enabled: true
+      memory:
+      network:
+
+processors:
+  memory_limiter:
+    check_interval: 0.5s
+    limit_mib: 400
+    spike_limit_mib: 100
+
+  resource:
+    attributes:
+      - action: insert
+        key: deployment.environment
+        value: ${env:ENVIRONMENT}
+      - action: insert
+        key: service.namespace
+        value: observability-lab
+
+  resourcedetection:
+    detectors: [env, docker, system]
+    timeout: 5s
+    override: false
+
+  filter/health:
+    error_mode: ignore
+    traces:
+      span:
+        - 'attributes["http.target"] == "/health"'
+        - 'attributes["http.route"] == "/health"'
+
+  attributes/metrics:
+    actions:
+      - action: delete
+        key: http.flavor        # reduce cardinalidad en Prometheus
+
+  batch:
+    timeout: 5s
+    send_batch_size: 1024
+    send_batch_max_size: 2048
+
+exporters:
+  # Trazas -> Jaeger (OTLP, no protocolo jaeger legacy)
+  otlp/jaeger:
+    endpoint: jaeger:4317
+    tls:
+      insecure: true
+
+  # Métricas -> endpoint scraping para Prometheus
+  prometheus:
+    endpoint: 0.0.0.0:8889
+    namespace: otelcol
+    send_timestamps: true
+    metric_expiration: 3m
+    resource_to_telemetry_conversion:
+      enabled: true   # service.name -> label service_name (requerido por el dashboard)
+
+  # Debug a stdout (reemplaza al 'logging' deprecado)
+  debug:
+    verbosity: normal
+    sampling_initial: 5
+    sampling_thereafter: 200
+
+service:
+  extensions: [health_check, pprof, zpages]
+  pipelines:
+    traces:
+      receivers:  [otlp]
+      processors: [memory_limiter, resource, resourcedetection, filter/health, batch]
+      exporters:  [otlp/jaeger, debug]
+    metrics:
+      receivers:  [otlp, hostmetrics]
+      processors: [memory_limiter, resource, resourcedetection, attributes/metrics, batch]
+      exporters:  [prometheus, debug]
+    logs:
+      # Definido por completitud; en local los logs van por stdout->Promtail->Loki.
+      receivers:  [otlp]
+      processors: [memory_limiter, resource, batch]
+      exporters:  [debug]
+  telemetry:
+    logs:
+      level: info
+    metrics:
+      address: 0.0.0.0:8888    # métricas internas del Collector (panel de errores)
+      level: detailed

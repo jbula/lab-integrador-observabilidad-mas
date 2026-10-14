@@ -1,0 +1,91 @@
+# ════════════════════════════════════════════════════════════════════════════
+# OTel Collector — MODO AWS (ECS Fargate, sidecar)
+# Trazas -> Jaeger (ECS Service Connect) · Métricas -> Prometheus (:8889)
+# Logs -> CloudWatch Logs (exporter awscloudwatchlogs)
+# NOTA: entregable IaC validado, NO desplegado (local-only). Config correcta para apply futuro.
+# Compatible con otel/opentelemetry-collector-contrib:0.103.0
+# ════════════════════════════════════════════════════════════════════════════
+
+extensions:
+  health_check:
+    endpoint: 0.0.0.0:13133
+
+receivers:
+  otlp:
+    protocols:
+      grpc:
+        endpoint: 0.0.0.0:4317
+        max_recv_msg_size_mib: 32
+      http:
+        endpoint: 0.0.0.0:4318
+
+processors:
+  memory_limiter:
+    check_interval: 0.5s
+    limit_mib: 400
+    spike_limit_mib: 100
+  resource:
+    attributes:
+      - action: insert
+        key: deployment.environment
+        value: ${env:ENVIRONMENT}
+      - action: insert
+        key: service.namespace
+        value: observability-lab
+  resourcedetection:
+    detectors: [env, ecs, system]
+    timeout: 5s
+    override: false
+  filter/health:
+    error_mode: ignore
+    traces:
+      span:
+        - 'attributes["http.target"] == "/health"'
+        - 'attributes["http.route"] == "/health"'
+  attributes/metrics:
+    actions:
+      - action: delete
+        key: http.flavor
+  batch:
+    timeout: 5s
+    send_batch_size: 1024
+    send_batch_max_size: 2048
+
+exporters:
+  otlp/jaeger:
+    endpoint: jaeger.otel-lab.local:4317   # ECS Service Connect / Cloud Map
+    tls:
+      insecure: true
+  prometheus:
+    endpoint: 0.0.0.0:8889
+    namespace: otelcol
+    send_timestamps: true
+    metric_expiration: 3m
+    resource_to_telemetry_conversion:
+      enabled: true   # service.name -> label service_name (requerido por el dashboard)
+  awscloudwatchlogs:
+    log_group_name: /otel-lab/services
+    log_stream_name: otel-collector
+    region: ${env:AWS_REGION}
+  debug:
+    verbosity: normal
+
+service:
+  extensions: [health_check]
+  pipelines:
+    traces:
+      receivers:  [otlp]
+      processors: [memory_limiter, resource, resourcedetection, filter/health, batch]
+      exporters:  [otlp/jaeger, debug]
+    metrics:
+      receivers:  [otlp]
+      processors: [memory_limiter, resource, resourcedetection, attributes/metrics, batch]
+      exporters:  [prometheus, debug]
+    logs:
+      receivers:  [otlp]
+      processors: [memory_limiter, resource, batch]
+      exporters:  [awscloudwatchlogs, debug]
+  telemetry:
+    metrics:
+      address: 0.0.0.0:8888
+      level: detailed
