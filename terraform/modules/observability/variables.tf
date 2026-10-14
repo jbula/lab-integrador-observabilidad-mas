@@ -1,0 +1,9 @@
+variable "name_prefix"        { type = string }
+variable "aws_region"         { type = string }
+variable "cluster_id"         { type = string }
+variable "namespace_id"       { type = string }
+variable "private_subnet_ids" { type = list(string) }
+variable "ecs_sg_id"          { type = string }
+variable "execution_role_arn" { type = string }
+variable "task_role_arn"      { type = string }
+variable "tags"               { type = map(string) }

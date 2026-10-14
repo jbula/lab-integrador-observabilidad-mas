@@ -1,0 +1,7 @@
+# Copiar a terraform.tfvars y ajustar. En modo local-only NO se ejecuta apply.
+aws_region   = "us-east-1"
+project      = "otel-lab"
+environment  = "lab"
+allowed_cidr = "TU_IP_PUBLICA/32"   # restringe acceso a Jaeger/Grafana
+image_tag    = "1.0.0"
+# db_password  se inyecta por variable de entorno TF_VAR_db_password o Secrets Manager
