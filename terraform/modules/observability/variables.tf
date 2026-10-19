@@ -7,3 +7,7 @@ variable "ecs_sg_id"          { type = string }
 variable "execution_role_arn" { type = string }
 variable "task_role_arn"      { type = string }
 variable "tags"               { type = map(string) }
+
+variable "public_subnet_ids" {
+  type = list(string)
+}

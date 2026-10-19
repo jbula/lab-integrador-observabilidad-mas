@@ -1,13 +1,19 @@
 variable "aws_region" {
   description = "Región AWS objetivo"
   type        = string
-  default     = "us-east-1"
+  default     = "us-east-2"
 }
 
 variable "account_id" {
-  description = "ID de cuenta AWS (placeholder en local; en apply real usar data.aws_caller_identity)"
+  description = "ID de cuenta AWS. En modo offline se usa este valor; en apply real se resuelve con data.aws_caller_identity."
   type        = string
   default     = "000000000000"
+}
+
+variable "offline_plan" {
+  description = "true = plan sin credenciales (credenciales simuladas y validaciones omitidas). false = apply real con perfil."
+  type        = bool
+  default     = true
 }
 
 variable "project" {
@@ -31,7 +37,7 @@ variable "vpc_cidr" {
 variable "azs" {
   description = "Availability Zones (estáticas para plan offline)"
   type        = list(string)
-  default     = ["us-east-1a", "us-east-1b"]
+  default     = ["us-east-2a", "us-east-2b"]
 }
 
 variable "allowed_cidr" {
@@ -51,4 +57,28 @@ variable "db_password" {
   type        = string
   default     = "changeme-in-secrets-manager"
   sensitive   = true
+}
+
+variable "aws_profile" {
+  description = "Perfil del AWS CLI para apply real. Vacio en modo offline."
+  type        = string
+  default     = ""
+}
+
+variable "enable_flow_logs" {
+  description = "Habilita VPC Flow Logs hacia CloudWatch"
+  type        = bool
+  default     = true
+}
+
+variable "flow_logs_retention" {
+  description = "Dias de retencion de los Flow Logs"
+  type        = number
+  default     = 7
+}
+
+variable "db_instance_class" {
+  description = "Clase de instancia RDS (db.t3.micro = capa gratuita)"
+  type        = string
+  default     = "db.t3.micro"
 }

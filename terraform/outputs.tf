@@ -17,3 +17,13 @@ output "ecs_cluster_name" {
   description = "Nombre del cluster ECS"
   value       = aws_ecs_cluster.main.name
 }
+
+output "flow_logs_log_group" {
+  description = "Log group de los VPC Flow Logs"
+  value       = module.security.flow_logs_log_group
+}
+
+output "rds_endpoint" {
+  description = "Endpoint de la base de datos de analitica"
+  value       = module.database.endpoint
+}

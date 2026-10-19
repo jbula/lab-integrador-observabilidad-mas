@@ -36,6 +36,11 @@ resource "aws_ecs_task_definition" "backend" {
   family                   = "${var.name_prefix}-${each.key}"
   requires_compatibilities = ["FARGATE"]
   network_mode             = "awsvpc"
+
+  runtime_platform {
+    operating_system_family = "LINUX"
+    cpu_architecture        = "ARM64"
+  }
   cpu                      = each.value.cpu
   memory                   = each.value.mem
   execution_role_arn       = var.execution_role_arn
@@ -74,9 +79,9 @@ resource "aws_ecs_service" "backend" {
   launch_type     = "FARGATE"
 
   network_configuration {
-    subnets          = var.private_subnet_ids
+    subnets          = var.public_subnet_ids
     security_groups  = [var.ecs_sg_id]
-    assign_public_ip = false
+    assign_public_ip = true
   }
 
   service_registries {

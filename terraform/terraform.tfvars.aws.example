@@ -1,0 +1,7 @@
+# Copiar a terraform.tfvars para desplegar DE VERDAD en la cuenta personal.
+offline_plan = false
+aws_profile  = "otel-lab"          # perfil del AWS CLI que crearas
+aws_region   = "us-east-2"
+account_id   = "616322963736"      # se resuelve solo, se deja por trazabilidad
+environment  = "lab"
+allowed_cidr = "TU_IP_PUBLICA/32"  # restringe Jaeger/Grafana a tu IP

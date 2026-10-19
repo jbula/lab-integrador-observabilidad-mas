@@ -13,3 +13,16 @@ variable "execution_role_arn" { type = string }
 variable "task_role_arn"      { type = string }
 variable "ecr_urls"           { type = map(string) }
 variable "tags"               { type = map(string) }
+
+variable "rds_endpoint" {
+  type = string
+}
+
+variable "rds_db_name" {
+  type = string
+}
+
+variable "db_password" {
+  type      = string
+  sensitive = true
+}
