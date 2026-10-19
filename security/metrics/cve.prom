@@ -1,0 +1,25 @@
+# HELP image_vulnerabilities Vulnerabilidades detectadas por Trivy, por imagen y severidad
+# TYPE image_vulnerabilities gauge
+# HELP image_scan_timestamp_seconds Marca de tiempo del ultimo escaneo exitoso
+# TYPE image_scan_timestamp_seconds gauge
+image_vulnerabilities{image="otellabs-service-a",severity="CRITICAL"} 7
+image_vulnerabilities{image="otellabs-service-a",severity="HIGH"} 101
+image_vulnerabilities{image="otellabs-service-a",severity="MEDIUM"} 216
+image_vulnerabilities{image="otellabs-service-a",severity="LOW"} 664
+image_vulnerabilities{image="otellabs-service-a",severity="UNKNOWN"} 5
+image_vulnerabilities{image="otellabs-service-b",severity="CRITICAL"} 7
+image_vulnerabilities{image="otellabs-service-b",severity="HIGH"} 101
+image_vulnerabilities{image="otellabs-service-b",severity="MEDIUM"} 216
+image_vulnerabilities{image="otellabs-service-b",severity="LOW"} 664
+image_vulnerabilities{image="otellabs-service-b",severity="UNKNOWN"} 5
+image_vulnerabilities{image="otellabs-data-service",severity="CRITICAL"} 7
+image_vulnerabilities{image="otellabs-data-service",severity="HIGH"} 101
+image_vulnerabilities{image="otellabs-data-service",severity="MEDIUM"} 216
+image_vulnerabilities{image="otellabs-data-service",severity="LOW"} 664
+image_vulnerabilities{image="otellabs-data-service",severity="UNKNOWN"} 5
+image_vulnerabilities{image="otellabs-alert-enricher",severity="CRITICAL"} 9
+image_vulnerabilities{image="otellabs-alert-enricher",severity="HIGH"} 112
+image_vulnerabilities{image="otellabs-alert-enricher",severity="MEDIUM"} 200
+image_vulnerabilities{image="otellabs-alert-enricher",severity="LOW"} 157
+image_vulnerabilities{image="otellabs-alert-enricher",severity="UNKNOWN"} 5
+image_scan_timestamp_seconds 1792363238

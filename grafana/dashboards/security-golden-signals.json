@@ -1,0 +1,516 @@
+{
+  "uid": "security-golden-signals",
+  "title": "Golden Signals de Seguridad",
+  "description": "Observabilidad de seguridad (Lab 4, Modulo C): autenticaciones fallidas, trafico Norte-Sur y Este-Oeste, y CVEs activos.",
+  "tags": [
+    "seguridad",
+    "lab4",
+    "golden-signals"
+  ],
+  "timezone": "browser",
+  "schemaVersion": 39,
+  "version": 1,
+  "refresh": "30s",
+  "time": {
+    "from": "now-1h",
+    "to": "now"
+  },
+  "panels": [
+    {
+      "id": 100,
+      "type": "row",
+      "title": "Autenticacion",
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 0
+      },
+      "collapsed": false,
+      "panels": []
+    },
+    {
+      "id": 1,
+      "title": "Intentos fallidos (total)",
+      "type": "stat",
+      "gridPos": {
+        "h": 5,
+        "w": 6,
+        "x": 0,
+        "y": 1
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "description": "Golden Signal de seguridad: volumen acumulado de autenticaciones fallidas.",
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum(otelcol_auth_attempts_total{result=\"failure\"})",
+          "legendFormat": "fallidos",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          }
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "orange",
+                "value": 10
+              },
+              {
+                "color": "red",
+                "value": 25
+              }
+            ]
+          },
+          "color": {
+            "mode": "thresholds"
+          }
+        },
+        "overrides": []
+      }
+    },
+    {
+      "id": 2,
+      "title": "Tasa de fallo de autenticacion",
+      "type": "gauge",
+      "gridPos": {
+        "h": 5,
+        "w": 6,
+        "x": 6,
+        "y": 1
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "description": "Porcentaje de intentos fallidos sobre el total. Un salto sostenido sugiere ataque de fuerza bruta.",
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "100 * sum(otelcol_auth_attempts_total{result=\"failure\"}) / clamp_min(sum(otelcol_auth_attempts_total), 1)",
+          "legendFormat": "% fallos",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          }
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "min": 0,
+          "max": 100,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "orange",
+                "value": 30
+              },
+              {
+                "color": "red",
+                "value": 60
+              }
+            ]
+          }
+        },
+        "overrides": []
+      }
+    },
+    {
+      "id": 3,
+      "title": "Intentos de autenticacion por resultado",
+      "type": "timeseries",
+      "gridPos": {
+        "h": 5,
+        "w": 12,
+        "x": 12,
+        "y": 1
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "description": "Evolucion temporal de exitos y fallos de autenticacion.",
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum(rate(otelcol_auth_attempts_total{result=\"failure\"}[2m]))",
+          "legendFormat": "fallidos/s",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          }
+        },
+        {
+          "refId": "B",
+          "expr": "sum(rate(otelcol_auth_attempts_total{result=\"success\"}[2m]))",
+          "legendFormat": "exitosos/s",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          }
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "custom": {},
+          "unit": "reqps"
+        },
+        "overrides": []
+      }
+    },
+    {
+      "id": 200,
+      "type": "row",
+      "title": "Trafico Norte-Sur y Este-Oeste",
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 6
+      },
+      "collapsed": false,
+      "panels": []
+    },
+    {
+      "id": 4,
+      "title": "Trafico Norte-Sur (entrada desde el borde)",
+      "type": "timeseries",
+      "gridPos": {
+        "h": 6,
+        "w": 12,
+        "x": 0,
+        "y": 7
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "description": "Trafico que entra al sistema desde fuera (cliente o generador de carga hacia service-a).",
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum(rate(otelcol_http_requests_total{service_name=\"service-a\"}[2m]))",
+          "legendFormat": "N-S: cliente -> service-a",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          }
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "custom": {},
+          "unit": "reqps"
+        },
+        "overrides": []
+      }
+    },
+    {
+      "id": 5,
+      "title": "Trafico Este-Oeste (entre servicios)",
+      "type": "timeseries",
+      "gridPos": {
+        "h": 6,
+        "w": 12,
+        "x": 12,
+        "y": 7
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "description": "Trafico interno entre microservicios. En AWS se complementa con VPC Flow Logs agregados por par origen/destino.",
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum(rate(otelcol_service_b_calls_total{status=\"attempt\"}[2m]))",
+          "legendFormat": "E-W: service-a -> service-b",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          }
+        },
+        {
+          "refId": "B",
+          "expr": "sum(rate(otelcol_data_service_calls_total{status=\"attempt\"}[2m]))",
+          "legendFormat": "E-W: service-b -> data-service",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          }
+        },
+        {
+          "refId": "C",
+          "expr": "sum(rate(otelcol_analytics_requests_total[2m]))",
+          "legendFormat": "E-W: carga en data-service",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          }
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "custom": {},
+          "unit": "reqps"
+        },
+        "overrides": []
+      }
+    },
+    {
+      "id": 6,
+      "title": "Relacion E-W / N-S",
+      "type": "stat",
+      "gridPos": {
+        "h": 4,
+        "w": 8,
+        "x": 0,
+        "y": 13
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "description": "Peticiones internas generadas por cada peticion externa. Un aumento inesperado puede indicar movimiento lateral.",
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum(rate(otelcol_service_b_calls_total{status=\"attempt\"}[5m])) / clamp_min(sum(rate(otelcol_http_requests_total{service_name=\"service-a\"}[5m])), 0.001)",
+          "legendFormat": "E-W por request N-S",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          }
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "custom": {}
+        },
+        "overrides": []
+      }
+    },
+    {
+      "id": 7,
+      "title": "Red del host (bytes recibidos)",
+      "type": "timeseries",
+      "gridPos": {
+        "h": 4,
+        "w": 16,
+        "x": 8,
+        "y": 13
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "description": "Volumen de red a nivel de host, como referencia de trafico agregado.",
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum(rate(node_network_receive_bytes_total{device!~\"lo|veth.*\"}[2m]))",
+          "legendFormat": "bytes/s recibidos",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          }
+        },
+        {
+          "refId": "B",
+          "expr": "sum(rate(node_network_transmit_bytes_total{device!~\"lo|veth.*\"}[2m]))",
+          "legendFormat": "bytes/s transmitidos",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          }
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "custom": {},
+          "unit": "Bps"
+        },
+        "overrides": []
+      }
+    },
+    {
+      "id": 300,
+      "type": "row",
+      "title": "Vulnerabilidades activas (CVEs)",
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 17
+      },
+      "collapsed": false,
+      "panels": []
+    },
+    {
+      "id": 8,
+      "title": "CVEs criticos",
+      "type": "stat",
+      "gridPos": {
+        "h": 5,
+        "w": 5,
+        "x": 0,
+        "y": 18
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "description": "Vulnerabilidades de severidad critica en las imagenes del laboratorio (Trivy).",
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum(image_vulnerabilities{severity=\"CRITICAL\"})",
+          "legendFormat": "CRITICAL",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          }
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 1
+              }
+            ]
+          },
+          "color": {
+            "mode": "thresholds"
+          }
+        },
+        "overrides": []
+      }
+    },
+    {
+      "id": 9,
+      "title": "CVEs por severidad",
+      "type": "piechart",
+      "gridPos": {
+        "h": 5,
+        "w": 7,
+        "x": 5,
+        "y": 18
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "description": "Distribucion de vulnerabilidades por severidad.",
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum(image_vulnerabilities{severity=~\"CRITICAL|HIGH|MEDIUM\"}) by (severity)",
+          "legendFormat": "{{severity}}",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          }
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "custom": {}
+        },
+        "overrides": []
+      }
+    },
+    {
+      "id": 10,
+      "title": "CVEs por imagen y severidad",
+      "type": "bargauge",
+      "gridPos": {
+        "h": 5,
+        "w": 12,
+        "x": 12,
+        "y": 18
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "description": "Vulnerabilidades criticas y altas por imagen. En AWS se complementa con los hallazgos de ECR image scanning.",
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum(image_vulnerabilities{severity=~\"CRITICAL|HIGH\"}) by (image, severity)",
+          "legendFormat": "{{image}} / {{severity}}",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          }
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "custom": {}
+        },
+        "overrides": []
+      }
+    },
+    {
+      "id": 11,
+      "title": "Antiguedad del ultimo escaneo",
+      "type": "stat",
+      "gridPos": {
+        "h": 4,
+        "w": 24,
+        "x": 0,
+        "y": 23
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "description": "Frescura del inventario de vulnerabilidades. Un valor alto indica que el escaneo no se esta ejecutando.",
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "time() - max(image_scan_timestamp_seconds)",
+          "legendFormat": "segundos desde el ultimo escaneo",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          }
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "custom": {},
+          "unit": "s"
+        },
+        "overrides": []
+      }
+    }
+  ]
+}
