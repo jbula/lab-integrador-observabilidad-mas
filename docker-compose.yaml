@@ -21,6 +21,7 @@ networks:
 volumes:
   postgres-a-data:
   postgres-b-data:
+  postgres-d-data:
   prometheus-data:
   grafana-data:
   jaeger-data:
@@ -123,6 +124,53 @@ services:
       timeout: 5s
       retries: 5
 
+  # ── DB de data-service (analytics) — base de datos por servicio ──────────
+  postgres-d:
+    image: postgres:16-alpine
+    container_name: postgres-d
+    environment:
+      POSTGRES_USER:     app
+      POSTGRES_PASSWORD: secret
+      POSTGRES_DB:       analyticsdb
+    ports:
+      - "5434:5432"
+    volumes:
+      - postgres-d-data:/var/lib/postgresql/data
+      - ./scripts/init-db-analytics.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    networks:
+      - otel-net
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U app -d analyticsdb"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  # ── data-service (Lab 4, Modulo A) ───────────────────────────────────────
+  data-service:
+    build:
+      context: ./data-service
+      dockerfile: Dockerfile
+    container_name: data-service
+    environment:
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4317
+      DATABASE_URL:                 postgresql://app:secret@postgres-d:5432/analyticsdb
+      DB_HOST:                      postgres-d
+      DB_NAME:                      analyticsdb
+      ENVIRONMENT:                  development
+      CLOUD_PROVIDER:               local
+      OTEL_ENABLED:                 ${OTEL_ENABLED:-true}
+      CHAOS_ERROR_RATE:             ${CHAOS_ERROR_RATE:-0}
+      CHAOS_LATENCY_MS:             ${CHAOS_LATENCY_MS:-0}
+    ports:
+      - "8002:8002"
+    networks:
+      - otel-net
+    depends_on:
+      postgres-d:
+        condition: service_healthy
+      otel-collector:
+        condition: service_healthy
+
   # ── Prometheus (backend de métricas) ─────────────────────────────────────
   prometheus:
     image: prom/prometheus:v2.52.0
@@ -131,8 +179,10 @@ services:
       - "--config.file=/etc/prometheus/prometheus.yaml"
       - "--storage.tsdb.retention.time=7d"
       - "--web.enable-remote-write-receiver"
+      - "--web.enable-lifecycle"
     volumes:
       - ./prometheus/prometheus.yaml:/etc/prometheus/prometheus.yaml:ro
+      - ./prometheus/rules:/etc/prometheus/rules:ro
       - prometheus-data:/prometheus
     ports:
       - "9091:9090"   # Prometheus UI (9091 para no colisionar con apps)
@@ -140,6 +190,53 @@ services:
       - otel-net
     depends_on:
       - otel-collector
+
+  # ── Alertmanager (Modulo B) ──────────────────────────────────────────────
+  alertmanager:
+    image: prom/alertmanager:v0.27.0
+    container_name: alertmanager
+    command: ["--config.file=/etc/alertmanager/alertmanager.yaml"]
+    volumes:
+      - ./alertmanager/alertmanager.yaml:/etc/alertmanager/alertmanager.yaml:ro
+    ports:
+      - "9093:9093"
+    networks:
+      - otel-net
+    depends_on:
+      - alert-enricher
+
+  # ── alert-enricher: añade el trace_id a las alertas (Modulo B) ───────────
+  alert-enricher:
+    build:
+      context: ./alert-enricher
+      dockerfile: Dockerfile
+    container_name: alert-enricher
+    environment:
+      LOKI_URL:       http://loki:3100
+      JAEGER_UI_URL:  http://localhost:16686
+    ports:
+      - "9099:9099"
+    networks:
+      - otel-net
+    depends_on:
+      loki:
+        condition: service_healthy
+
+  # ── node-exporter: expone las metricas de CVE (textfile) y de red (Modulo C) ──
+  node-exporter:
+    image: prom/node-exporter:v1.8.1
+    container_name: node-exporter
+    command:
+      - "--path.rootfs=/host"
+      - "--collector.textfile.directory=/textfile"
+      - "--collector.netdev"
+    volumes:
+      - ./security/metrics:/textfile:ro
+      - /:/host:ro,rslave
+    ports:
+      - "9100:9100"
+    networks:
+      - otel-net
 
   # ── Grafana (visualización) ──────────────────────────────────────────────
   grafana:
@@ -237,6 +334,7 @@ services:
       CLOUD_PROVIDER:               local
       OTEL_ENABLED:                 ${OTEL_ENABLED:-true}
       SIMULATE_DB_LATENCY:          ${SIMULATE_DB_LATENCY:-true}
+      DATA_SERVICE_URL:             http://data-service:8002
     ports:
       - "8001:8001"   # FastAPI
       - "9065:9065"   # Prometheus /metrics (mapeado a 9092 en host)

@@ -19,3 +19,7 @@ terraform/*.tfplan
 
 # Sistema
 .DS_Store
+
+# Resultados de ejecuciones de caos (se conservan los informes, no los logs crudos)
+chaos/results/*.log
+chaos/__pycache__/
