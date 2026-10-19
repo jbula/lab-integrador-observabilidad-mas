@@ -23,3 +23,11 @@ terraform/*.tfplan
 # Resultados de ejecuciones de caos (se conservan los informes, no los logs crudos)
 chaos/results/*.log
 chaos/__pycache__/
+
+# Grabaciones de video: GitHub rechaza archivos de mas de 100 MB. Se versiona
+# el README con las instrucciones, no los archivos crudos de la grabacion.
+# Si el video final cabe bajo el limite, forzar su inclusion con:
+#   git add -f docs/integrative/video-presentacion/demo.mp4
+docs/integrative/video-presentacion/*.mov
+docs/integrative/video-presentacion/*.mkv
+docs/integrative/video-presentacion/*.avi
