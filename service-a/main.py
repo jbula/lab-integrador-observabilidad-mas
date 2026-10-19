@@ -21,6 +21,7 @@ from opentelemetry.sdk.trace import TracerProvider
 from opentelemetry.sdk.trace.export import BatchSpanProcessor
 from opentelemetry.sdk.metrics import MeterProvider
 from opentelemetry.sdk.metrics.export import PeriodicExportingMetricReader
+from opentelemetry.sdk.metrics.view import ExplicitBucketHistogramAggregation, View
 from opentelemetry.sdk.resources import Resource, SERVICE_NAME, SERVICE_VERSION
 from opentelemetry.exporter.otlp.proto.grpc.trace_exporter import OTLPSpanExporter
 from opentelemetry.exporter.otlp.proto.grpc.metric_exporter import OTLPMetricExporter
@@ -32,8 +33,11 @@ from opentelemetry.propagate import inject
 # ── Configuración desde variables de entorno ─────────────────────────────────
 OTEL_ENDPOINT   = os.getenv("OTEL_EXPORTER_OTLP_ENDPOINT", "http://otel-collector:4317")
 SERVICE_B_URL   = os.getenv("SERVICE_B_URL", "http://service-b:8001")
-DB_DSN          = os.getenv("DATABASE_URL", "postgresql://app:secret@postgres:5432/appdb")
+DB_DSN          = os.getenv("DATABASE_URL", "postgresql://app:secret@postgres-a:5432/ordersdb")
 ENV             = os.getenv("ENVIRONMENT", "production")
+DB_HOST         = os.getenv("DB_HOST", "postgres-a")
+DB_PORT         = int(os.getenv("DB_PORT", "5432"))
+DB_NAME         = os.getenv("DB_NAME", "ordersdb")
 APP_VERSION     = os.getenv("APP_VERSION", "1.0.0")
 OTEL_ENABLED    = os.getenv("OTEL_ENABLED", "true").lower() == "true"  # baseline del benchmark
 
@@ -45,6 +49,16 @@ resource = Resource.create({
     "deployment.environment": ENV,
     "cloud.provider": os.getenv("CLOUD_PROVIDER", "local"),
     "host.name":     os.getenv("HOSTNAME", "local"),
+    # service.instance.id distingue cada PROCESO, no cada contenedor. Las
+    # imagenes arrancan uvicorn con --workers 2, de modo que dentro de un mismo
+    # contenedor hay dos procesos y cada uno crea su propio MeterProvider con un
+    # contador acumulativo independiente. Como el resto de atributos de recurso
+    # son identicos, ambos flujos colapsaban en la MISMA serie de Prometheus: el
+    # exportador exponia alternadamente uno u otro, cada alternancia parecia un
+    # reinicio de contador y rate() se inflaba de forma acumulativa (se midieron
+    # 74 req/s sobre una carga real de 12). Al incluir el PID cada worker produce
+    # su propia serie y las agregaciones con sum() vuelven a ser correctas.
+    "service.instance.id": f"{os.getenv('HOSTNAME', 'local')}-{os.getpid()}",
 })
 
 # ── 2. TracerProvider + OTLP exporter (gRPC → OTel Collector) ────────────────
@@ -56,11 +70,37 @@ else:
     tracer_provider = None
 tracer = trace.get_tracer("service-a", APP_VERSION)
 
+# ── Buckets EXPLICITOS de latencia (5 ms .. 2.5 s) ───────────────────────────
+# Sin esta View el SDK aplica sus fronteras por defecto, que estan expresadas en
+# MILISEGUNDOS (0, 5, 10, ... 10000). Como los instrumentos registran SEGUNDOS,
+# toda observacion caia en el primer bucket y histogram_quantile devolvia un
+# valor fijo de ~4.95 s: el histograma quedaba sin resolucion y una inyeccion de
+# 200 ms resultaba invisible. Estas fronteras coinciden con las de data-service
+# para que los tres servicios sean comparables.
+# El techo del histograma debe quedar POR ENCIMA del timeout del cliente. Con
+# el techo anterior en 2.5 s, una degradacion que llevaba la latencia real por
+# encima de ese valor dejaba a histogram_quantile sin margen de interpolacion y
+# devolvia 2.5 s de forma constante. Peor aun: la linea base movil se envenenaba
+# con ese mismo 2.5 s, de modo que la condicion p99 > base + 2*sigma pasaba a ser
+# 2.5 > 2.5, siempre falsa, y el detector de anomalias se desactivaba solo justo
+# cuando mas se necesitaba. Se extiende a 10 s, por encima del timeout de 5 s del
+# cliente httpx interno.
+LATENCY_BUCKETS = [0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1.0, 2.5, 5.0, 10.0]
+
 # ── 3. MeterProvider + OTLP metric exporter (push al Collector cada 15s) ──────
 # Las métricas se exponen en formato Prometheus desde el Collector (:8889), no por-servicio
 if OTEL_ENABLED:
     otlp_metric_reader = PeriodicExportingMetricReader(OTLPMetricExporter(endpoint=OTEL_ENDPOINT, insecure=True), export_interval_millis=15000)
-    meter_provider = MeterProvider(resource=resource, metric_readers=[otlp_metric_reader])
+    meter_provider = MeterProvider(
+        resource=resource,
+        metric_readers=[otlp_metric_reader],
+        views=[
+            View(
+                instrument_name="*duration_seconds",
+                aggregation=ExplicitBucketHistogramAggregation(boundaries=LATENCY_BUCKETS),
+            )
+        ],
+    )
     metrics.set_meter_provider(meter_provider)
 else:
     meter_provider = None
@@ -165,8 +205,12 @@ async def get_order(order_id: str, request: Request):
     """
     start = time.time()
     labels = {"endpoint": "/order", "method": "GET"}
+    # El contador y el histograma se emiten UNA sola vez, en el bloque finally,
+    # para que toda peticion quede contabilizada con su etiqueta status. Antes
+    # se incrementaba al entrar (sin status) y de nuevo al salir, de modo que
+    # las respuestas 2xx se contaban doble y los 404 no aparecian con status.
+    status = "5xx"
     active_requests.add(1, labels)
-    http_requests_total.add(1, labels)
 
     try:
         # ── Custom span: lógica de negocio DB ────────────────────────────────
@@ -176,7 +220,10 @@ async def get_order(order_id: str, request: Request):
             attributes={
                 "db.system":    "postgresql",
                 "db.operation": "SELECT",
-                "db.name":      "appdb",
+                "db.name":      DB_NAME,
+                "db.sql.table": "orders",
+                "server.address": DB_HOST,
+                "server.port":  DB_PORT,
                 "order.id":     order_id,
             }
         ) as db_span:
@@ -244,19 +291,14 @@ async def get_order(order_id: str, request: Request):
                 sb_span.set_attribute("inventory.available", inventory.get("available", 0))
                 logger.info("Inventory fetched from service-b",
                             extra={"product": order_data["product"], "available": inventory.get("available")})
-                status_labels = {**labels, "status": "2xx"} 
+                status = "2xx"
             except httpx.HTTPStatusError as e:
                 service_b_calls_total.add(1, {"status": "error"})
                 sb_span.record_exception(e)
                 sb_span.set_status(trace.StatusCode.ERROR, str(e))
-                status_labels = {**labels, "status": f"{e.status_code // 100}xx"}
-                http_requests_total.add(1, status_labels)
+                status = f"{e.status_code // 100}xx"
                 logger.error("service-b call failed", extra={"error": str(e)})
                 inventory = {"available": -1, "error": "service-b unavailable"}
-
-        total_duration = time.time() - start
-        http_requests_total.add(1, status_labels)
-        http_request_duration.record(total_duration, labels)
 
         return {
             "order":     order_data,
@@ -264,8 +306,18 @@ async def get_order(order_id: str, request: Request):
             "trace_id":  format(trace.get_current_span().get_span_context().trace_id, "032x"),
         }
 
+    except HTTPException as exc:
+        # Captura 404 (pedido inexistente) y 500 (fallo de DB) para que queden
+        # reflejados en el SLI de errores del borde, y re-lanza sin alterar la
+        # respuesta al cliente.
+        status = f"{exc.status_code // 100}xx"
+        raise
+
     finally:
         active_requests.add(-1, labels)
+        status_labels = {**labels, "status": status}
+        http_requests_total.add(1, status_labels)
+        http_request_duration.record(time.time() - start, status_labels)
 
 
 @app.get("/metrics/health")

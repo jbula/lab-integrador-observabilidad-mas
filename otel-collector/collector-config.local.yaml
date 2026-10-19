@@ -83,7 +83,11 @@ exporters:
   prometheus:
     endpoint: 0.0.0.0:8889
     namespace: otelcol
-    send_timestamps: true
+    # Desactivado: Prometheus usa la hora del scrape, que es el comportamiento
+    # mas robusto. Con true el exportador publica la marca temporal original del
+    # punto OTel, lo que puede introducir muestras fuera de orden cuando varios
+    # productores comparten identidad de serie.
+    send_timestamps: false
     metric_expiration: 3m
     resource_to_telemetry_conversion:
       enabled: true   # service.name -> label service_name (requerido por el dashboard)
