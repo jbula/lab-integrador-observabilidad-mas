@@ -1,0 +1,29 @@
+# ════════════════════════════════════════════════════════════════════════════
+# Alertmanager — enrutamiento de alertas al enriquecedor (Modulo B)
+# Ambos detectores (dinamico y estatico) se envian al enricher, que añade el
+# trace_id. Se usan tiempos de agrupacion cortos para no inflar el MTTD.
+# ════════════════════════════════════════════════════════════════════════════
+global:
+  resolve_timeout: 2m
+
+route:
+  receiver: enricher
+  group_by: ['alertname', 'detector']
+  group_wait: 5s          # corto: el objetivo de MTTD es inferior a 2 min
+  group_interval: 30s
+  repeat_interval: 1h
+  routes:
+    - matchers:
+        - detector = "dynamic-2sigma"
+      receiver: enricher
+      group_wait: 5s
+    - matchers:
+        - detector = "static-threshold"
+      receiver: enricher
+      group_wait: 5s
+
+receivers:
+  - name: enricher
+    webhook_configs:
+      - url: http://alert-enricher:9099/webhook
+        send_resolved: true

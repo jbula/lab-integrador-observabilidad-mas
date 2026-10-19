@@ -1,0 +1,110 @@
+# ════════════════════════════════════════════════════════════════════════════
+# Recording rules — base estadistica para la deteccion de anomalias (Modulo B)
+# Calculan la tasa de error instantanea, su linea base movil y su desviacion
+# estandar, que son los insumos de la regla de correlacion 2-sigma.
+# ════════════════════════════════════════════════════════════════════════════
+groups:
+  - name: aiops_baseline
+    interval: 15s
+    rules:
+      # Tasa de error actual de data-service (ventana corta).
+      # clamp_min evita division por cero cuando no hay trafico.
+      # or vector(0) es imprescindible: si no existe ninguna serie con
+      # status="5xx", el numerador seria un vector vacio y toda la division
+      # devolveria vacio, dejando la regla sin datos cuando no hay errores.
+      - record: job:error_rate:ratio2m
+        expr: |
+          (sum(rate(otelcol_analytics_requests_total{service_name="data-service",status="5xx"}[2m])) or vector(0))
+          /
+          clamp_min(sum(rate(otelcol_analytics_requests_total{service_name="data-service"}[2m])), 0.001)
+
+      # Linea base: media movil de la tasa de error en la ultima hora.
+      - record: job:error_rate:baseline1h
+        expr: avg_over_time(job:error_rate:ratio2m[1h])
+
+      # Desviacion estandar (sigma) de la tasa de error en la ultima hora.
+      - record: job:error_rate:sigma1h
+        expr: stddev_over_time(job:error_rate:ratio2m[1h])
+
+      # Umbral dinamico: linea base + 2 sigma.
+      - record: job:error_rate:threshold_2sigma
+        expr: job:error_rate:baseline1h + (2 * job:error_rate:sigma1h)
+
+      # Percentil 99 de latencia de data-service. Funciona porque el servicio
+      # declara buckets explicitos acordes a su escala (5 ms .. 2.5 s).
+      # El filtro > 0 descarta el NaN que devuelve histogram_quantile cuando no
+      # hay trafico en la ventana. Sin el, la regla correlacionada comparaba
+      # NaN > 0.5, siempre falsa, y la alerta no podia dispararse.
+      - record: job:latency:p99_2m
+        expr: |
+          histogram_quantile(0.99,
+            sum(rate(otelcol_analytics_query_duration_seconds_bucket{service_name="data-service"}[2m])) by (le)) > 0
+
+  # ══════════════════════════════════════════════════════════════════════════
+  # Senales del BORDE (service-a) — insumo del experimento D1.
+  # El experimento D1 inyecta latencia en service-b, que esta aguas abajo de
+  # service-a y aguas arriba de data-service. Por eso la degradacion NO se ve
+  # en las reglas de data-service: propaga hacia arriba, hasta el borde. Estas
+  # reglas observan el sintoma tal como lo percibe el usuario final.
+  # ══════════════════════════════════════════════════════════════════════════
+  - name: edge_slis
+    interval: 15s
+    rules:
+      # Percentil 99 de latencia extremo a extremo vista desde el borde.
+      # Depende de los buckets explicitos de service-a: con las fronteras por
+      # defecto (en ms) este cuantil devolvia un 4.95 s constante.
+      # El filtro > 0 NO es cosmetico: histogram_quantile devuelve NaN cuando la
+      # tasa de la ventana es cero (sin trafico), y ese NaN se propaga a
+      # avg_over_time y stddev_over_time, dejando la linea base y sigma en NaN
+      # de forma permanente. Al descartar la muestra, la serie queda con huecos
+      # en los periodos sin trafico, que es el comportamiento correcto: sin
+      # peticiones no hay latencia que evaluar.
+      - record: edge:latency:p99_2m
+        expr: |
+          histogram_quantile(0.99,
+            sum(rate(otelcol_http_request_duration_seconds_bucket{service_name="service-a"}[2m])) by (le)) > 0
+
+      # Latencia media del borde: contraste frente al p99 y senal de respaldo
+      # si el histograma perdiera resolucion.
+      - record: edge:latency:mean2m
+        expr: |
+          (sum(rate(otelcol_http_request_duration_seconds_sum{service_name="service-a"}[2m])) or vector(0))
+          /
+          clamp_min(sum(rate(otelcol_http_request_duration_seconds_count{service_name="service-a"}[2m])), 0.001)
+
+      # Tasa de error del borde. Cuenta 4xx y 5xx: ambos son fallo percibido.
+      - record: edge:error_rate:ratio2m
+        expr: |
+          (sum(rate(otelcol_http_requests_total{service_name="service-a",status=~"4xx|5xx"}[2m])) or vector(0))
+          /
+          clamp_min(sum(rate(otelcol_http_requests_total{service_name="service-a"}[2m])), 0.001)
+
+      # Linea base estadistica de la latencia del borde. Replica el enfoque
+      # 2-sigma que el Modulo B aplica a la tasa de error: detectar que la
+      # latencia CAMBIO respecto a su propio historial, en lugar de esperar a
+      # que cruce un umbral absoluto. La ventana es de 30 min y no de 1 h para
+      # que la linea base se forme dentro de la duracion util del laboratorio.
+      # Una ventana corta es mas sensible al ruido reciente: es el compromiso
+      # clasico de la deteccion de anomalias, y queda documentado como tal.
+      - record: edge:latency:p99_baseline10m
+        expr: avg_over_time(edge:latency:p99_2m[10m])
+
+      - record: edge:latency:p99_sigma10m
+        expr: stddev_over_time(edge:latency:p99_2m[10m])
+
+      - record: edge:latency:p99_threshold_2sigma
+        expr: edge:latency:p99_baseline10m + (2 * edge:latency:p99_sigma10m)
+
+      # Throughput del borde y su linea base. Un percentil de latencia NO ve la
+      # diferencia entre "el sistema responde rapido" y "el sistema casi no
+      # responde": si solo completan 2 peticiones y ambas son rapidas, el p99 es
+      # excelente. Durante el experimento D1 a 12 req/s el throughput cayo a
+      # 0.05 req/s mientras la tasa de error se mantenia en cero, porque los
+      # timeouts ocurren en el CLIENTE y el servidor nunca registra un 5xx. Hace
+      # falta una senal explicita de caida de trafico.
+      - record: edge:throughput:rps2m
+        expr: |
+          sum(rate(otelcol_http_requests_total{service_name="service-a"}[2m])) or vector(0)
+
+      - record: edge:throughput:baseline10m
+        expr: avg_over_time(edge:throughput:rps2m[10m])

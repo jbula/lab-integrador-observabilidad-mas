@@ -1,0 +1,84 @@
+# ════════════════════════════════════════════════════════════════════════════
+# Alertas del BORDE (service-a) — detector del experimento D1.
+#
+# D1 inyecta 200 ms de latencia en service-b. service-b esta aguas abajo de
+# service-a y aguas arriba de data-service, de modo que la degradacion propaga
+# HACIA ARRIBA, hasta el borde, y no aparece en las reglas de data-service.
+#
+# Se alerta sobre el SINTOMA que percibe el usuario final (latencia extremo a
+# extremo), no sobre la causa en un componente interno.
+# ════════════════════════════════════════════════════════════════════════════
+groups:
+  - name: edge_latency
+    rules:
+      # Detector RELATIVO (2 sigma). Exige ademas un piso absoluto de 250 ms
+      # para no alertar por desviaciones estadisticamente significativas pero
+      # operativamente irrelevantes cuando la latencia base es muy pequena.
+      - alert: EdgeLatencyDegraded
+        expr: |
+          (edge:latency:p99_2m > edge:latency:p99_threshold_2sigma)
+          and
+          (edge:latency:p99_2m > 0.25)
+        for: 30s
+        labels:
+          severity: critical
+          detector: dynamic-2sigma
+          service_name: service-a
+          signal: latency
+        annotations:
+          summary: "Latencia del borde degradada respecto a su linea base"
+          description: >-
+            El percentil 99 extremo a extremo ({{ printf "%.3f" $value }} s) supera
+            la linea base mas dos desviaciones estandar y el piso de 250 ms. Indica
+            degradacion aguas abajo propagada hasta el borde.
+          runbook: >-
+            Revisar en Jaeger las trazas de service-a ordenadas por duracion e
+            identificar el span hijo que concentra el tiempo (call.service-b.inventory
+            o la consulta a data-service).
+
+      # Detector ABSOLUTO contra el SLO declarado de 500 ms. Se mantiene en
+      # paralelo para la contabilidad de error budget y para contrastar su
+      # sensibilidad frente al detector relativo.
+      - alert: EdgeLatencySLOBreach
+        expr: edge:latency:p99_2m > 0.5
+        for: 30s
+        labels:
+          severity: warning
+          detector: static-slo
+          service_name: service-a
+          signal: latency
+        annotations:
+          summary: "Percentil 99 del borde por encima del SLO de 500 ms"
+          description: "Consume error budget de latencia."
+          slo_threshold_p99: "0.5"
+
+      # Colapso de throughput. Cubre el punto ciego que dejan los percentiles de
+      # latencia y la tasa de error: cuando el sistema se satura, las peticiones
+      # expiran en el cliente, el servidor no las contabiliza como error y el p99
+      # solo refleja a las pocas que si completaron. La unica senal fiable es que
+      # el trafico atendido se desploma respecto a su propia linea base.
+      #
+      # El guardarraíl > 1 evita que la alerta se dispare en periodos legitimos
+      # sin trafico (noches, entornos inactivos), donde una caida al 0 % no
+      # significa una incidencia.
+      - alert: EdgeThroughputCollapse
+        expr: |
+          (edge:throughput:baseline10m > 1)
+          and
+          (edge:throughput:rps2m < 0.5 * edge:throughput:baseline10m)
+        for: 30s
+        labels:
+          severity: critical
+          detector: throughput-drop
+          service_name: service-a
+          signal: throughput
+        annotations:
+          summary: "Caida del throughput del borde por debajo de la mitad de su linea base"
+          description: >-
+            El trafico atendido ({{ printf "%.2f" $value }} req/s) cayo por debajo
+            del 50 % de la linea base de los ultimos 10 minutos. Indica saturacion
+            o indisponibilidad, no necesariamente acompanada de errores HTTP.
+          runbook: >-
+            Comprobar si las peticiones expiran en el cliente antes de llegar a
+            registrarse en el servidor, y revisar la saturacion de los workers
+            aguas abajo (service-b y data-service).

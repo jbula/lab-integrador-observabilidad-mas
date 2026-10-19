@@ -1,0 +1,30 @@
+# ════════════════════════════════════════════════════════════════════════════
+# Detector DINAMICO (Modulo B): regla de correlacion.
+#   error_rate > baseline + 2*sigma   Y   latency_p99 > SLO
+# Exige AMBAS condiciones, de modo que un pico de errores sin impacto en
+# latencia, o una latencia alta sin errores, no generan alerta.
+# ════════════════════════════════════════════════════════════════════════════
+groups:
+  - name: aiops_anomaly_dynamic
+    rules:
+      - alert: DataServiceAnomalyCorrelated
+        expr: |
+          (
+            job:error_rate:ratio2m > job:error_rate:threshold_2sigma
+            and
+            job:error_rate:ratio2m > 0.02
+          )
+          and
+          (job:latency:p99_2m > 0.5)
+        for: 30s
+        labels:
+          severity: critical
+          detector: dynamic-2sigma
+          service_name: data-service
+        annotations:
+          summary: "Anomalia correlacionada en data-service"
+          description: >-
+            La tasa de error ({{ printf "%.2f" $value }}) supera la linea base mas
+            dos desviaciones estandar y el percentil 99 de latencia excede el SLO
+            de 500 ms. Alerta pendiente de enriquecimiento con trace_id.
+          slo_threshold_p99: "0.5"

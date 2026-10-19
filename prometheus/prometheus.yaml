@@ -5,6 +5,14 @@ global:
     cluster: otel-lab
     environment: development
 
+rule_files:
+  - /etc/prometheus/rules/*.yaml
+
+alerting:
+  alertmanagers:
+    - static_configs:
+        - targets: ["alertmanager:9093"]
+
 scrape_configs:
   # Métricas de las apps, expuestas por el OTel Collector (OTLP push -> endpoint Prometheus)
   - job_name: otel-collector-apps
@@ -18,3 +26,13 @@ scrape_configs:
   - job_name: otel-collector-internal
     static_configs:
       - targets: ["otel-collector:8888"]
+
+  # Metricas del enriquecedor de alertas (Modulo B)
+  - job_name: alert-enricher
+    static_configs:
+      - targets: ["alert-enricher:9099"]
+
+  # Golden Signals de seguridad: CVEs (textfile) y metricas de red (Modulo C)
+  - job_name: node-exporter
+    static_configs:
+      - targets: ["node-exporter:9100"]

@@ -1,0 +1,18 @@
+# ════════════════════════════════════════════════════════════════════════════
+# Detector ESTATICO (comparativa de ruido, Modulo B).
+# Umbral fijo del 1 % de errores, sin contexto estadistico ni correlacion.
+# Se ejecuta en paralelo al dinamico para cuantificar la reduccion de ruido.
+# ════════════════════════════════════════════════════════════════════════════
+groups:
+  - name: aiops_anomaly_static
+    rules:
+      - alert: DataServiceErrorRateStatic
+        expr: job:error_rate:ratio2m > 0.01
+        for: 15s
+        labels:
+          severity: warning
+          detector: static-threshold
+          service_name: data-service
+        annotations:
+          summary: "Tasa de error de data-service por encima del umbral fijo del 1 %"
+          description: "Detector de umbral estatico, sin correlacion ni linea base."
