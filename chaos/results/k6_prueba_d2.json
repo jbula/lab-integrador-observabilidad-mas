@@ -1,0 +1,12 @@
+{
+  "peticiones": 1426,
+  "rps_real": 12,
+  "fallidas_pct": 0,
+  "latencia_ms": {
+    "avg": 21.2,
+    "med": 20.4,
+    "p95": 25.2,
+    "p99": 36.2,
+    "max": 65
+  }
+}

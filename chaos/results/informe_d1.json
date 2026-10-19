@@ -1,0 +1,191 @@
+{
+  "experimento": "D1",
+  "fallo_inyectado": "latencia de red +200 ms en service-b",
+  "rps_objetivo": 12,
+  "fases_segundos": {
+    "base": 150,
+    "caos": 180,
+    "recuperacion": 120
+  },
+  "t0_epoch": 1792380917.8584142,
+  "t0_utc": "2026-10-19T03:35:17.858414+00:00",
+  "mttd": {
+    "objetivo_segundos": 120,
+    "primera_deteccion_segundos": 35.4,
+    "objetivo_cumplido": true,
+    "por_alerta": {
+      "EdgeLatencyDegraded": {
+        "mttd_segundos": 35.4,
+        "objetivo_cumplido": true,
+        "detector": "dynamic-2sigma",
+        "severidad": "critical"
+      }
+    },
+    "no_detectadas": [
+      "EdgeLatencySLOBreach",
+      "EdgeThroughputCollapse"
+    ]
+  },
+  "muestras": {
+    "base": {
+      "etiqueta": "base",
+      "p99_borde_s": 0.043999999999999914,
+      "media_borde_s": 0.019897706686100143,
+      "umbral_2sigma_s": 0.05515529205750426,
+      "throughput_rps": 11.997075291989766,
+      "throughput_base_rps": 11.183644930870908,
+      "error_rate_borde": 0.0,
+      "error_rate_data_service": 0.0,
+      "p99_data_service_s": NaN
+    },
+    "caos": {
+      "etiqueta": "caos",
+      "p99_borde_s": 0.4975,
+      "media_borde_s": 0.4197113737643195,
+      "umbral_2sigma_s": 0.55557209474825,
+      "throughput_rps": 11.99926868931805,
+      "throughput_base_rps": 11.818837888430906,
+      "error_rate_borde": 0.0,
+      "error_rate_data_service": 0.0,
+      "p99_data_service_s": NaN
+    },
+    "recuperacion": {
+      "etiqueta": "recuperacion",
+      "p99_borde_s": 0.4898214285714285,
+      "media_borde_s": 0.08581781867624386,
+      "umbral_2sigma_s": 0.6979992148515795,
+      "throughput_rps": 12.060165754918138,
+      "throughput_base_rps": 11.826485151302444,
+      "error_rate_borde": 0.0,
+      "error_rate_data_service": 0.0,
+      "p99_data_service_s": NaN
+    }
+  },
+  "slo": {
+    "base": {
+      "etiqueta": "d1_base",
+      "ventana": {
+        "inicio_utc": "2026-10-19T03:32:47.416541+00:00",
+        "fin_utc": "2026-10-19T03:35:17.422448+00:00",
+        "duracion_segundos": 150.0
+      },
+      "trafico": {
+        "peticiones": 1680.4,
+        "errores": 0.0
+      },
+      "slo": {
+        "objetivo": 0.99,
+        "umbral_latencia_segundos": 0.5,
+        "budget_mensual_minutos": 432.0000000000004
+      },
+      "disponibilidad": {
+        "sli": 1.0,
+        "slo_cumplido": true,
+        "error_budget": {
+          "fraccion_incumplida": 0.0,
+          "minutos_consumidos": 0.0,
+          "pct_del_budget_mensual": 0.0
+        }
+      },
+      "latencia": {
+        "sli_fraccion_bajo_500ms": 1.0,
+        "slo_cumplido": true,
+        "error_budget": {
+          "fraccion_incumplida": 0.0,
+          "minutos_consumidos": 0.0,
+          "pct_del_budget_mensual": 0.0
+        },
+        "p99_observado_segundos": 0.043,
+        "umbral_2sigma_segundos": 0.0552
+      }
+    },
+    "caos": {
+      "etiqueta": "d1_caos",
+      "ventana": {
+        "inicio_utc": "2026-10-19T03:35:17.858414+00:00",
+        "fin_utc": "2026-10-19T03:38:18.471911+00:00",
+        "duracion_segundos": 180.6
+      },
+      "trafico": {
+        "peticiones": 2156.0,
+        "errores": 0.0
+      },
+      "slo": {
+        "objetivo": 0.99,
+        "umbral_latencia_segundos": 0.5,
+        "budget_mensual_minutos": 432.0000000000004
+      },
+      "disponibilidad": {
+        "sli": 1.0,
+        "slo_cumplido": true,
+        "error_budget": {
+          "fraccion_incumplida": 0.0,
+          "minutos_consumidos": 0.0,
+          "pct_del_budget_mensual": 0.0
+        }
+      },
+      "latencia": {
+        "sli_fraccion_bajo_500ms": 0.998592,
+        "slo_cumplido": true,
+        "error_budget": {
+          "fraccion_incumplida": 0.001408,
+          "minutos_consumidos": 0.0042,
+          "pct_del_budget_mensual": 0.001
+        },
+        "p99_observado_segundos": 0.4975,
+        "umbral_2sigma_segundos": 0.5556
+      }
+    },
+    "recuperacion": {
+      "etiqueta": "d1_recuperacion",
+      "ventana": {
+        "inicio_utc": "2026-10-19T03:38:18.695221+00:00",
+        "fin_utc": "2026-10-19T03:40:18.615724+00:00",
+        "duracion_segundos": 119.9
+      },
+      "trafico": {
+        "peticiones": 1435.9,
+        "errores": 0.0
+      },
+      "slo": {
+        "objetivo": 0.99,
+        "umbral_latencia_segundos": 0.5,
+        "budget_mensual_minutos": 432.0000000000004
+      },
+      "disponibilidad": {
+        "sli": 1.0,
+        "slo_cumplido": true,
+        "error_budget": {
+          "fraccion_incumplida": 0.0,
+          "minutos_consumidos": 0.0,
+          "pct_del_budget_mensual": 0.0
+        }
+      },
+      "latencia": {
+        "sli_fraccion_bajo_500ms": 0.995961,
+        "slo_cumplido": true,
+        "error_budget": {
+          "fraccion_incumplida": 0.004039,
+          "minutos_consumidos": 0.0081,
+          "pct_del_budget_mensual": 0.0019
+        },
+        "p99_observado_segundos": 0.4898,
+        "umbral_2sigma_segundos": 0.698
+      }
+    }
+  },
+  "ventanas_epoch": {
+    "base": {
+      "inicio": 1792380767.4165409,
+      "fin": 1792380917.4224482
+    },
+    "caos": {
+      "inicio": 1792380917.8584142,
+      "fin": 1792381098.471911
+    },
+    "recuperacion": {
+      "inicio": 1792381098.695221,
+      "fin": 1792381218.615724
+    }
+  }
+}

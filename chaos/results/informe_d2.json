@@ -1,0 +1,184 @@
+{
+  "experimento": "D2",
+  "fallo_inyectado": "tasa de error 10 % en data-service",
+  "rps_objetivo": 12,
+  "fases_segundos": {
+    "base": 150,
+    "caos": 180,
+    "recuperacion": 120
+  },
+  "t0_epoch": 1792381445.100616,
+  "t0_utc": "2026-10-19T03:44:05.100616+00:00",
+  "mttd": {
+    "objetivo_segundos": 120,
+    "primera_deteccion_segundos": null,
+    "objetivo_cumplido": false,
+    "por_alerta": {},
+    "no_detectadas": [
+      "DataServiceAnomalyCorrelated",
+      "DataServiceErrorRateStatic"
+    ]
+  },
+  "muestras": {
+    "base": {
+      "etiqueta": "base",
+      "p99_borde_s": 0.04308823529411765,
+      "media_borde_s": 0.019765938866523003,
+      "umbral_2sigma_s": 0.6943644127191292,
+      "throughput_rps": 12.017949388926041,
+      "throughput_base_rps": 10.538545507286557,
+      "error_rate_borde": 0.0,
+      "error_rate_data_service": 0.0,
+      "p99_data_service_s": null
+    },
+    "caos": {
+      "etiqueta": "caos",
+      "p99_borde_s": 0.04740624999999974,
+      "media_borde_s": 0.020153620891773243,
+      "umbral_2sigma_s": 0.6447442795293272,
+      "throughput_rps": 12.002644650516217,
+      "throughput_base_rps": 10.66884220995429,
+      "error_rate_borde": 0.0,
+      "error_rate_data_service": 0.0,
+      "p99_data_service_s": null
+    },
+    "recuperacion": {
+      "etiqueta": "recuperacion",
+      "p99_borde_s": 0.042698717948718,
+      "media_borde_s": 0.019542101220414942,
+      "umbral_2sigma_s": 0.4330028946046009,
+      "throughput_rps": 11.995469023806988,
+      "throughput_base_rps": 10.672421796942126,
+      "error_rate_borde": 0.0,
+      "error_rate_data_service": null,
+      "p99_data_service_s": null
+    }
+  },
+  "slo": {
+    "base": {
+      "etiqueta": "d2_base",
+      "ventana": {
+        "inicio_utc": "2026-10-19T03:41:26.206619+00:00",
+        "fin_utc": "2026-10-19T03:43:56.210630+00:00",
+        "duracion_segundos": 150.0
+      },
+      "trafico": {
+        "peticiones": 1657.5,
+        "errores": 0.0
+      },
+      "slo": {
+        "objetivo": 0.99,
+        "umbral_latencia_segundos": 0.5,
+        "budget_mensual_minutos": 432.0000000000004
+      },
+      "disponibilidad": {
+        "sli": 1.0,
+        "slo_cumplido": true,
+        "error_budget": {
+          "fraccion_incumplida": 0.0,
+          "minutos_consumidos": 0.0,
+          "pct_del_budget_mensual": 0.0
+        }
+      },
+      "latencia": {
+        "sli_fraccion_bajo_500ms": 1.0,
+        "slo_cumplido": true,
+        "error_budget": {
+          "fraccion_incumplida": 0.0,
+          "minutos_consumidos": 0.0,
+          "pct_del_budget_mensual": 0.0
+        },
+        "p99_observado_segundos": 0.0431,
+        "umbral_2sigma_segundos": 0.6944
+      }
+    },
+    "caos": {
+      "etiqueta": "d2_caos",
+      "ventana": {
+        "inicio_utc": "2026-10-19T03:44:05.100616+00:00",
+        "fin_utc": "2026-10-19T03:47:05.725719+00:00",
+        "duracion_segundos": 180.6
+      },
+      "trafico": {
+        "peticiones": 2160.3,
+        "errores": 0.0
+      },
+      "slo": {
+        "objetivo": 0.99,
+        "umbral_latencia_segundos": 0.5,
+        "budget_mensual_minutos": 432.0000000000004
+      },
+      "disponibilidad": {
+        "sli": 1.0,
+        "slo_cumplido": true,
+        "error_budget": {
+          "fraccion_incumplida": 0.0,
+          "minutos_consumidos": 0.0,
+          "pct_del_budget_mensual": 0.0
+        }
+      },
+      "latencia": {
+        "sli_fraccion_bajo_500ms": 1.0,
+        "slo_cumplido": true,
+        "error_budget": {
+          "fraccion_incumplida": 0.0,
+          "minutos_consumidos": 0.0,
+          "pct_del_budget_mensual": 0.0
+        },
+        "p99_observado_segundos": 0.0491,
+        "umbral_2sigma_segundos": 0.6274
+      }
+    },
+    "recuperacion": {
+      "etiqueta": "d2_recuperacion",
+      "ventana": {
+        "inicio_utc": "2026-10-19T03:47:14.830847+00:00",
+        "fin_utc": "2026-10-19T03:49:14.834956+00:00",
+        "duracion_segundos": 120.0
+      },
+      "trafico": {
+        "peticiones": 1441.6,
+        "errores": 0.0
+      },
+      "slo": {
+        "objetivo": 0.99,
+        "umbral_latencia_segundos": 0.5,
+        "budget_mensual_minutos": 432.0000000000004
+      },
+      "disponibilidad": {
+        "sli": 1.0,
+        "slo_cumplido": true,
+        "error_budget": {
+          "fraccion_incumplida": 0.0,
+          "minutos_consumidos": 0.0,
+          "pct_del_budget_mensual": 0.0
+        }
+      },
+      "latencia": {
+        "sli_fraccion_bajo_500ms": 1.0,
+        "slo_cumplido": true,
+        "error_budget": {
+          "fraccion_incumplida": 0.0,
+          "minutos_consumidos": 0.0,
+          "pct_del_budget_mensual": 0.0
+        },
+        "p99_observado_segundos": 0.0427,
+        "umbral_2sigma_segundos": 0.433
+      }
+    }
+  },
+  "ventanas_epoch": {
+    "base": {
+      "inicio": 1792381286.2066188,
+      "fin": 1792381436.21063
+    },
+    "caos": {
+      "inicio": 1792381445.100616,
+      "fin": 1792381625.725719
+    },
+    "recuperacion": {
+      "inicio": 1792381634.830847,
+      "fin": 1792381754.834956
+    }
+  }
+}

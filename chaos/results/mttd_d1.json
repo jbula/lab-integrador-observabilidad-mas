@@ -1,0 +1,14 @@
+{
+  "t0_epoch": 1792379328.0,
+  "t0_utc": "2026-10-19T03:08:48+00:00",
+  "objetivo_mttd_segundos": 120,
+  "alertas_esperadas": [
+    "EdgeLatencyDegraded",
+    "EdgeLatencySLOBreach"
+  ],
+  "detectadas": {},
+  "no_detectadas": [
+    "EdgeLatencyDegraded",
+    "EdgeLatencySLOBreach"
+  ]
+}
